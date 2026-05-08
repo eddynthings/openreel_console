@@ -16,6 +16,7 @@
 import type { Project, MediaItem, ProjectSettings, TextStyle } from "@openreel/core";
 import { useProjectStore } from "../stores/project-store";
 import { useTimelineStore } from "../stores/timeline-store";
+import { autoSaveManager } from "./auto-save";
 
 const BRIDGE_URL = "ws://localhost:7175";
 
@@ -364,15 +365,33 @@ export function initDevBridge(): void {
       };
 
       // Auto-restore the last saved project from localStorage.
-      // This runs ~800ms after page load — well before the 30-second auto-save
-      // interval can overwrite the previous session's IndexedDB slot.
+      // Runs ~800ms after page load. After restoring, we sync into OpenReel's own
+      // autosave DB so: (a) the project is loadable from the UI's project list,
+      // (b) the stale blank-project entries that accumulate on every refresh are
+      // cleared, and (c) crash recovery works via OpenReel's own mechanism.
       const persisted = localStorage.getItem("openreel_console_project");
       if (persisted) {
         try {
           const project = JSON.parse(persisted) as Project;
+
+          // Restore to the live store
           useProjectStore.getState().loadProject(project);
+
+          // Sync into OpenReel's autosave DB:
+          // 1. Ensure the DB is open (safe to call multiple times)
+          // 2. Wipe all stale entries (blank "Mystic Amsterdam" projects from previous refreshes)
+          // 3. Write our project as the authoritative slot-0 entry
+          // This prevents the markDirty debounce from later writing the blank project,
+          // and makes our project visible and loadable from OpenReel's own recovery UI.
+          autoSaveManager.initialize().then(async () => {
+            await autoSaveManager.clearAllSaves();
+            await autoSaveManager.forceSave(project);
+          }).catch((e) => {
+            console.warn("[OpenReel Console] AutoSave sync failed:", e);
+          });
+
           console.log(
-            `%c[OpenReel Console] Auto-restored project: "${project.name}"`,
+            `%c[OpenReel Console] Auto-restored: "${project.name}"`,
             "color: #22c55e",
           );
         } catch (e) {
