@@ -1,0 +1,16 @@
+{
+  "name": "openreel-console",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "WebSocket bridge: Claude Code terminal → OpenReel browser video editor",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:eddynthings/openreel_console.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
