@@ -371,33 +371,36 @@ export function initDevBridge(): void {
       // cleared, and (c) crash recovery works via OpenReel's own mechanism.
       const persisted = localStorage.getItem("openreel_console_project");
       if (persisted) {
-        try {
-          const project = JSON.parse(persisted) as Project;
+        (async () => {
+          try {
+            const project = JSON.parse(persisted) as Project;
+            const store = useProjectStore.getState();
 
-          // Restore to the live store
-          useProjectStore.getState().loadProject(project);
+            // Immediate load so the UI shows the correct project structure right away.
+            // Blobs are missing at this point — videos will be placeholders briefly.
+            store.loadProject(project);
 
-          // Sync into OpenReel's autosave DB:
-          // 1. Ensure the DB is open (safe to call multiple times)
-          // 2. Wipe all stale entries (blank "Mystic Amsterdam" projects from previous refreshes)
-          // 3. Write our project as the authoritative slot-0 entry
-          // This prevents the markDirty debounce from later writing the blank project,
-          // and makes our project visible and loadable from OpenReel's own recovery UI.
-          autoSaveManager.initialize().then(async () => {
+            // Write our project into OpenReel's autosave DB, then recover via
+            // recoverFromAutoSave() — that's the path that reloads blobs from IndexedDB
+            // by project ID, so videos/audio play correctly after restore.
+            await autoSaveManager.initialize();
             await autoSaveManager.clearAllSaves();
             await autoSaveManager.forceSave(project);
-          }).catch((e) => {
-            console.warn("[OpenReel Console] AutoSave sync failed:", e);
-          });
 
-          console.log(
-            `%c[OpenReel Console] Auto-restored: "${project.name}"`,
-            "color: #22c55e",
-          );
-        } catch (e) {
-          console.warn("[OpenReel Console] Auto-restore failed — stored project JSON is corrupt:", e);
-          localStorage.removeItem("openreel_console_project");
-        }
+            const saves = await autoSaveManager.checkForRecovery(project.id);
+            if (saves.length > 0) {
+              await store.recoverFromAutoSave(saves[0].id);
+            }
+
+            console.log(
+              `%c[OpenReel Console] Auto-restored: "${project.name}"`,
+              "color: #22c55e",
+            );
+          } catch (e) {
+            console.warn("[OpenReel Console] Auto-restore failed:", e);
+            localStorage.removeItem("openreel_console_project");
+          }
+        })();
       }
     });
 
