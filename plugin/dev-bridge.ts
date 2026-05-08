@@ -16,6 +16,7 @@
 import type { Project, MediaItem, ProjectSettings, TextStyle } from "@openreel/core";
 import { useProjectStore } from "../stores/project-store";
 import { useTimelineStore } from "../stores/timeline-store";
+import { projectManager } from "./project-manager";
 
 const BRIDGE_URL = "ws://localhost:7175";
 
@@ -50,6 +51,35 @@ function serializeError(e: unknown): string | undefined {
     return JSON.stringify(e);
   }
   return String(e);
+}
+
+/** Write a blob-free project snapshot into openreel-projects PROJECTS_STORE.
+ *  This makes openRecentProject() work for bridge-loaded projects that have no
+ *  FileSystemFileHandle — without it, clicking the dropdown entry silently fails. */
+function saveProjectToManagerDb(project: Project): Promise<void> {
+  return new Promise((resolve) => {
+    const req = indexedDB.open("openreel-projects", 1);
+    req.onsuccess = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("projects")) { resolve(); return; }
+      const tx = db.transaction("projects", "readwrite");
+      // Strip blobs before writing — they live in openreel-db, not here
+      const p = project as Project & { mediaLibrary: { items: unknown[] } };
+      const clean = {
+        ...p,
+        mediaLibrary: {
+          ...p.mediaLibrary,
+          items: p.mediaLibrary.items.map(
+            ({ blob: _b, thumbnailUrl: _t, filmstripThumbnails: _f, waveformData: _w, ...rest }: Record<string, unknown>) => rest,
+          ),
+        },
+      };
+      tx.objectStore("projects").put(clean);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    };
+    req.onerror = () => resolve();
+  });
 }
 
 async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
@@ -101,12 +131,18 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
 
       // ── Project ──────────────────────────────────────────────────────────
       case "loadProject": {
-        store.loadProject(args.project as Project);
-        return {
-          id,
-          ok: true,
-          result: { loaded: true, projectId: (args.project as Project).id },
-        };
+        const project = args.project as Project;
+        store.loadProject(project);
+
+        // Register in OpenReel's project manager so it appears in the dropdown
+        // and is selectable. Writes to both RECENT_STORE (for the list) and
+        // PROJECTS_STORE (so clicking the entry can load it without a file handle).
+        projectManager.initialize().then(async () => {
+          await projectManager.addToRecent(project);
+          await saveProjectToManagerDb(project);
+        }).catch(() => {});
+
+        return { id, ok: true, result: { loaded: true, projectId: project.id } };
       }
 
       case "createNewProject": {

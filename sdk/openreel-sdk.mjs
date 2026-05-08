@@ -398,6 +398,98 @@ async function relinkAllProxies(proxyDir, { onProgress } = {}) {
   return { linked, failed, errors };
 }
 
+/**
+ * Relink ALL media items (regardless of placeholder status) to files on disk.
+ * Use this to repopulate browser IndexedDB after blob loss (e.g. browser cache clear).
+ *
+ * Videos are linked to proxy files (.mp4), audio to full-res originals.
+ * Files are located by scanning the directory tree — sourceFile.folder is not required.
+ *
+ * @param {string} assetDir  - Absolute path to original full-res asset root
+ * @param {string} proxyDir  - Absolute path to proxy root (mirrors assetDir structure)
+ * @param {{ onProgress?: (done, total, name) => void }} opts
+ */
+async function relinkAllMedia(assetDir, proxyDir, { onProgress } = {}) {
+  const { readdirSync, statSync } = await import("fs");
+  const path = await import("path");
+
+  // Recursively build name → relative-path index for a directory
+  function buildIndex(root, dir = root) {
+    const index = {};
+    for (const entry of readdirSync(dir)) {
+      const full = path.join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        Object.assign(index, buildIndex(root, full));
+      } else {
+        index[entry] = path.relative(root, full);
+      }
+    }
+    return index;
+  }
+
+  const AUDIO_EXTS = new Set([".mp3", ".m4a", ".wav", ".aac", ".flac"]);
+  const MIME = {
+    ".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm",
+    ".mp3": "audio/mpeg", ".m4a": "audio/aac", ".wav": "audio/wav", ".aac": "audio/aac",
+  };
+
+  const assetIndex = buildIndex(assetDir);
+  const proxyIndex = buildIndex(proxyDir);
+
+  const [assetBase, proxyBase] = await Promise.all([
+    registerAssetRoot("assets", assetDir),
+    registerAssetRoot("proxies", proxyDir),
+  ]);
+
+  const project = await call("getProject");
+  const items = (project?.mediaLibrary?.items ?? []).filter((m) => m.sourceFile?.name);
+
+  if (items.length === 0) {
+    console.log("[OpenReel Console] No media items with sourceFile found.");
+    return { linked: 0, failed: 0, errors: [] };
+  }
+
+  let linked = 0, failed = 0;
+  const errors = [];
+
+  for (const item of items) {
+    const name = item.sourceFile.name;
+    const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
+    const isAudio = AUDIO_EXTS.has(ext);
+    const baseName = name.slice(0, name.lastIndexOf("."));
+
+    let fileUrl, fileName, mimeType;
+
+    if (isAudio) {
+      const rel = assetIndex[name];
+      if (!rel) { errors.push({ id: item.id, name, error: "not found in asset dir" }); failed++; continue; }
+      fileUrl = `${assetBase}${rel}`;
+      fileName = name;
+      mimeType = MIME[ext] || "audio/mpeg";
+    } else {
+      // Match proxy by base name (proxy files always use .mp4 extension)
+      const proxyName = baseName + ".mp4";
+      const proxyRel = proxyIndex[proxyName];
+      if (!proxyRel) { errors.push({ id: item.id, name, error: "no proxy found" }); failed++; continue; }
+      fileUrl = `${proxyBase}${proxyRel}`;
+      fileName = proxyName;
+      mimeType = "video/mp4";
+    }
+
+    onProgress?.(linked + failed + 1, items.length, name);
+
+    try {
+      await call("relinkMedia", { mediaId: item.id, fileUrl, fileName, mimeType }, 30_000);
+      linked++;
+    } catch (e) {
+      errors.push({ id: item.id, name, error: e.message });
+      failed++;
+    }
+  }
+
+  return { linked, failed, errors };
+}
+
 // ── Export ────────────────────────────────────────────────────────────────────
 
 export const openreel = {
@@ -461,7 +553,8 @@ export const openreel = {
   relinkMedia,
   relinkAll,
   relinkForEditing,
-  relinkAllProxies, // deprecated — use relinkForEditing
+  relinkAllMedia,     // relinks all items regardless of placeholder status
+  relinkAllProxies,   // deprecated — use relinkForEditing
 
   // Low-level escape hatch for commands not yet wrapped as SDK methods
   call,
