@@ -101,9 +101,6 @@ mkdir -p "$OR_ROOT/apps/web/src/services"
 cp "$SKILL_DIR/plugin/dev-bridge.ts" "$OR_ROOT/apps/web/src/services/dev-bridge.ts"
 ok "dev-bridge.ts → apps/web/src/services/"
 
-mkdir -p "$OR_ROOT/apps/web/src/hooks"
-cp "$SKILL_DIR/plugin/patches/useProjectRecovery.ts" "$OR_ROOT/apps/web/src/hooks/useProjectRecovery.ts"
-ok "useProjectRecovery.ts → apps/web/src/hooks/ (patched: suppresses dialog when bridge manages session)"
 
 cp "$SKILL_DIR/sdk/openreel-sdk.mjs" "$OR_ROOT/openreel-sdk.mjs"
 ok "openreel-sdk.mjs → project root"

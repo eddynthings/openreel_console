@@ -16,7 +16,6 @@
 import type { Project, MediaItem, ProjectSettings, TextStyle } from "@openreel/core";
 import { useProjectStore } from "../stores/project-store";
 import { useTimelineStore } from "../stores/timeline-store";
-import { autoSaveManager } from "./auto-save";
 
 const BRIDGE_URL = "ws://localhost:7175";
 
@@ -84,6 +83,7 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
       case "getProject": {
         return { id, ok: true, result: store.project };
       }
+
 
       case "getProjectJson": {
         // Returns the project serialized as a JSON string, ready to write to disk.
@@ -290,20 +290,6 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
         return { id, ok: true };
       }
 
-      // ── Session persistence ──────────────────────────────────────────────
-      case "persistProject": {
-        // Stores the blob-free project JSON in localStorage so it survives
-        // browser refreshes. The bridge auto-restores it on next connection,
-        // before OpenReel's 30-second auto-save can overwrite the slot.
-        localStorage.setItem("openreel_console_project", args.json as string);
-        return { id, ok: true };
-      }
-
-      case "clearPersistedProject": {
-        localStorage.removeItem("openreel_console_project");
-        return { id, ok: true };
-      }
-
       // ── Asset relinking ──────────────────────────────────────────────────
       case "relinkMedia": {
         // Fetches a file from a URL served by the bridge's HTTP asset server,
@@ -364,44 +350,6 @@ export function initDevBridge(): void {
         },
       };
 
-      // Auto-restore the last saved project from localStorage.
-      // Runs ~800ms after page load. After restoring, we sync into OpenReel's own
-      // autosave DB so: (a) the project is loadable from the UI's project list,
-      // (b) the stale blank-project entries that accumulate on every refresh are
-      // cleared, and (c) crash recovery works via OpenReel's own mechanism.
-      const persisted = localStorage.getItem("openreel_console_project");
-      if (persisted) {
-        (async () => {
-          try {
-            const project = JSON.parse(persisted) as Project;
-            const store = useProjectStore.getState();
-
-            // Immediate load so the UI shows the correct project structure right away.
-            // Blobs are missing at this point — videos will be placeholders briefly.
-            store.loadProject(project);
-
-            // Write our project into OpenReel's autosave DB, then recover via
-            // recoverFromAutoSave() — that's the path that reloads blobs from IndexedDB
-            // by project ID, so videos/audio play correctly after restore.
-            await autoSaveManager.initialize();
-            await autoSaveManager.clearAllSaves();
-            await autoSaveManager.forceSave(project);
-
-            const saves = await autoSaveManager.checkForRecovery(project.id);
-            if (saves.length > 0) {
-              await store.recoverFromAutoSave(saves[0].id);
-            }
-
-            console.log(
-              `%c[OpenReel Console] Auto-restored: "${project.name}"`,
-              "color: #22c55e",
-            );
-          } catch (e) {
-            console.warn("[OpenReel Console] Auto-restore failed:", e);
-            localStorage.removeItem("openreel_console_project");
-          }
-        })();
-      }
     });
 
     ws.addEventListener("message", async (event) => {
