@@ -120,6 +120,24 @@ const loadProject   = (project)          => call("loadProject", { project });
 const createProject = (name, settings)   => call("createNewProject", { name, settings });
 
 /**
+ * Save the current project state to a JSON file on disk.
+ * Media blobs are stripped (they live in IndexedDB by ID) — the saved file is
+ * safe to commit and can be reloaded instantly without relinking.
+ *
+ * This is the correct source of truth to use after the first full setup.
+ * Future calls to loadProjectFile(savedPath) will load in seconds because
+ * IndexedDB already has the blobs keyed by the same media IDs.
+ *
+ * @param {string} filePath - Absolute path to write, e.g. './project-live.json'
+ */
+async function saveProject(filePath) {
+  const { writeFile } = await import("fs/promises");
+  const json = await call("getProjectJson");
+  await writeFile(filePath, json, "utf8");
+  console.log("[OpenReel Console] Project saved to", filePath);
+}
+
+/**
  * Load a project from a JSON file on disk.
  * Supports both { project: {...} } wrapper and raw Project objects.
  */
@@ -395,6 +413,7 @@ export const openreel = {
   // Project
   loadProject,
   loadProjectFile,
+  saveProject,
   createProject,
 
   // Tracks

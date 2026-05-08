@@ -193,6 +193,32 @@ await openreel.relinkForEditing('/path/to/assets', '/path/to/proxies');
 
 ## Workflows
 
+### Save and Restore Project State
+
+After the first full setup (load + fix tracks + relink), save the live state:
+
+```javascript
+await openreel.saveProject('./my-project-live.json');
+```
+
+This writes the current project (correct track order, real media IDs, no blobs) to disk.
+Future restores load instantly — IndexedDB already has the blobs keyed by the same IDs:
+
+```javascript
+// Seconds, no relinking needed
+await openreel.loadProjectFile('./my-project-live.json');
+```
+
+**On browser refresh:** OpenReel shows a recovery dialog (standard behavior).
+- Click **Recover** → loads from IndexedDB, fully linked, done.
+- Clicked **New Project** by mistake → run `loadProjectFile('./my-project-live.json')`.
+- After editing in the UI → run `saveProject('./my-project-live.json')` to persist changes.
+
+Keep `enterprise-security-project.json` (or your original) as the source-of-truth
+with placeholders. Use the `-live.json` file as your working copy.
+
+---
+
 ### Load and Verify a Project
 
 ```javascript

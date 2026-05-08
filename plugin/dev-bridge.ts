@@ -84,6 +84,20 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
         return { id, ok: true, result: store.project };
       }
 
+      case "getProjectJson": {
+        // Returns the project serialized as a JSON string, ready to write to disk.
+        // Strips media blobs (they live in IndexedDB) — safe to commit or share.
+        const p = store.project;
+        const exportable = {
+          ...p,
+          mediaLibrary: {
+            ...p.mediaLibrary,
+            items: p.mediaLibrary.items.map(({ blob: _blob, thumbnailUrl: _thumb, filmstripThumbnails: _film, waveformData: _wave, ...rest }) => rest),
+          },
+        };
+        return { id, ok: true, result: JSON.stringify(exportable, null, 2) };
+      }
+
       // ── Project ──────────────────────────────────────────────────────────
       case "loadProject": {
         store.loadProject(args.project as Project);
