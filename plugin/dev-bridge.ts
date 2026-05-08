@@ -289,6 +289,20 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
         return { id, ok: true };
       }
 
+      // ── Session persistence ──────────────────────────────────────────────
+      case "persistProject": {
+        // Stores the blob-free project JSON in localStorage so it survives
+        // browser refreshes. The bridge auto-restores it on next connection,
+        // before OpenReel's 30-second auto-save can overwrite the slot.
+        localStorage.setItem("openreel_console_project", args.json as string);
+        return { id, ok: true };
+      }
+
+      case "clearPersistedProject": {
+        localStorage.removeItem("openreel_console_project");
+        return { id, ok: true };
+      }
+
       // ── Asset relinking ──────────────────────────────────────────────────
       case "relinkMedia": {
         // Fetches a file from a URL served by the bridge's HTTP asset server,
@@ -348,6 +362,24 @@ export function initDevBridge(): void {
           return Promise.resolve({ id, queued: true });
         },
       };
+
+      // Auto-restore the last saved project from localStorage.
+      // This runs ~800ms after page load — well before the 30-second auto-save
+      // interval can overwrite the previous session's IndexedDB slot.
+      const persisted = localStorage.getItem("openreel_console_project");
+      if (persisted) {
+        try {
+          const project = JSON.parse(persisted) as Project;
+          useProjectStore.getState().loadProject(project);
+          console.log(
+            `%c[OpenReel Console] Auto-restored project: "${project.name}"`,
+            "color: #22c55e",
+          );
+        } catch (e) {
+          console.warn("[OpenReel Console] Auto-restore failed — stored project JSON is corrupt:", e);
+          localStorage.removeItem("openreel_console_project");
+        }
+      }
     });
 
     ws.addEventListener("message", async (event) => {

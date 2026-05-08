@@ -133,8 +133,17 @@ const createProject = (name, settings)   => call("createNewProject", { name, set
 async function saveProject(filePath) {
   const { writeFile } = await import("fs/promises");
   const json = await call("getProjectJson");
+  // Write to disk
   await writeFile(filePath, json, "utf8");
-  console.log("[OpenReel Console] Project saved to", filePath);
+  // Mirror into browser localStorage so the bridge can auto-restore on refresh
+  await call("persistProject", { json });
+  console.log("[OpenReel Console] Project saved to", filePath, "(+ browser auto-restore enabled)");
+}
+
+/** Remove the auto-restore snapshot from browser localStorage. */
+async function clearPersistedProject() {
+  await call("clearPersistedProject");
+  console.log("[OpenReel Console] Auto-restore cleared — next refresh will open a blank project.");
 }
 
 /**
@@ -414,6 +423,7 @@ export const openreel = {
   loadProject,
   loadProjectFile,
   saveProject,
+  clearPersistedProject,
   createProject,
 
   // Tracks
