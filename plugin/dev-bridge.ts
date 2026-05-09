@@ -16,6 +16,7 @@
 import type { Project, MediaItem, ProjectSettings, TextStyle } from "@openreel/core";
 import { useProjectStore } from "../stores/project-store";
 import { useTimelineStore } from "../stores/timeline-store";
+import { autoSaveManager } from "./auto-save";
 
 const BRIDGE_URL = "ws://localhost:7175";
 
@@ -313,6 +314,12 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
         const file = new File([blob], fileName, { type: mimeType });
         const r = await store.replaceMediaAsset(mediaId, file);
         return { id, ok: r.success, error: serializeError(r.error) };
+      }
+
+      // ── Auto-save ────────────────────────────────────────────────────────
+      case "clearAutoSaves": {
+        await autoSaveManager.clearAllSaves();
+        return { id, ok: true };
       }
 
       default:
