@@ -13,7 +13,7 @@
  *        initDevBridge();   // call before ReactDOM.createRoot
  */
 
-import type { Project, MediaItem, ProjectSettings, TextStyle } from "@openreel/core";
+import type { Project, MediaItem, ProjectSettings, TextStyle, Transform } from "@openreel/core";
 import { useProjectStore } from "../stores/project-store";
 import { useTimelineStore } from "../stores/timeline-store";
 import { useUIStore } from "../stores/ui-store";
@@ -54,7 +54,6 @@ function serializeError(e: unknown): string | undefined {
   return String(e);
 }
 
-
 async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
   const { id, command, args = {} } = msg;
   const store = useProjectStore.getState();
@@ -87,16 +86,15 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
         return { id, ok: true, result: store.project };
       }
 
-
       case "getProjectJson": {
-        // Returns the project serialized as a JSON string, ready to write to disk.
-        // Strips media blobs (they live in IndexedDB) — safe to commit or share.
         const p = store.project;
         const exportable = {
           ...p,
           mediaLibrary: {
             ...p.mediaLibrary,
-            items: p.mediaLibrary.items.map(({ blob: _blob, thumbnailUrl: _thumb, filmstripThumbnails: _film, waveformData: _wave, ...rest }) => rest),
+            items: p.mediaLibrary.items.map(
+              ({ blob: _blob, thumbnailUrl: _thumb, filmstripThumbnails: _film, waveformData: _wave, ...rest }) => rest,
+            ),
           },
         };
         return { id, ok: true, result: JSON.stringify(exportable, null, 2) };
@@ -104,9 +102,8 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
 
       // ── Project ──────────────────────────────────────────────────────────
       case "loadProject": {
-        const project = args.project as Project;
-        store.loadProject(project);
-        return { id, ok: true, result: { loaded: true, projectId: project.id } };
+        store.loadProject(args.project as Project);
+        return { id, ok: true, result: { loaded: true, projectId: (args.project as Project).id } };
       }
 
       case "createNewProject": {
@@ -115,6 +112,16 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
           args.settings as Partial<ProjectSettings> | undefined,
         );
         return { id, ok: true, result: { created: true } };
+      }
+
+      case "renameProject": {
+        const r = await store.renameProject(args.name as string);
+        return { id, ok: r.success, error: serializeError(r.error) };
+      }
+
+      case "updateSettings": {
+        const r = await store.updateSettings(args.settings as Partial<ProjectSettings>);
+        return { id, ok: r.success, error: serializeError(r.error) };
       }
 
       // ── Tracks ───────────────────────────────────────────────────────────
@@ -128,6 +135,11 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
 
       case "removeTrack": {
         const r = await store.removeTrack(args.trackId as string);
+        return { id, ok: r.success, error: serializeError(r.error) };
+      }
+
+      case "reorderTrack": {
+        const r = await store.reorderTrack(args.trackId as string, args.position as number);
         return { id, ok: r.success, error: serializeError(r.error) };
       }
 
@@ -194,10 +206,26 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
         return { id, ok: r.success, error: serializeError(r.error) };
       }
 
+      case "duplicateClip": {
+        const r = await store.duplicateClip(args.clipId as string);
+        return { id, ok: r.success, result: r, error: serializeError(r.error) };
+      }
+
+      case "separateAudio": {
+        const r = await store.separateAudio(args.clipId as string);
+        return { id, ok: r.success, result: r, error: serializeError(r.error) };
+      }
+
+      case "updateClipTransform": {
+        const ok = store.updateClipTransform(
+          args.clipId as string,
+          args.transform as Partial<Transform>,
+        );
+        return { id, ok };
+      }
+
       // ── Media library ────────────────────────────────────────────────────
       case "importMedia": {
-        // Mirrors the UI's "Add Media" button: fetches a file served by the bridge's
-        // HTTP asset server, creates a real File object, and calls store.importMedia().
         const { fileUrl, fileName, mimeType } = args as {
           fileUrl: string;
           fileName: string;
@@ -205,21 +233,12 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
         };
         const resp = await fetch(fileUrl);
         if (!resp.ok) {
-          return {
-            id,
-            ok: false,
-            error: `Fetch failed: ${resp.status} ${resp.statusText} — ${fileUrl}`,
-          };
+          return { id, ok: false, error: `Fetch failed: ${resp.status} ${resp.statusText} — ${fileUrl}` };
         }
         const blob = await resp.blob();
         const file = new File([blob], fileName, { type: mimeType });
         const r = await store.importMedia(file);
-        return {
-          id,
-          ok: r.success,
-          result: { mediaId: r.actionId },
-          error: serializeError(r.error),
-        };
+        return { id, ok: r.success, result: { mediaId: r.actionId }, error: serializeError(r.error) };
       }
 
       case "addPlaceholderMedia": {
@@ -234,6 +253,24 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
 
       case "renameMedia": {
         const r = await store.renameMedia(args.mediaId as string, args.name as string);
+        return { id, ok: r.success, error: serializeError(r.error) };
+      }
+
+      // ── Asset relinking ──────────────────────────────────────────────────
+      case "relinkMedia": {
+        const { mediaId, fileUrl, fileName, mimeType } = args as {
+          mediaId: string;
+          fileUrl: string;
+          fileName: string;
+          mimeType: string;
+        };
+        const resp = await fetch(fileUrl);
+        if (!resp.ok) {
+          return { id, ok: false, error: `Fetch failed: ${resp.status} ${resp.statusText} — ${fileUrl}` };
+        }
+        const blob = await resp.blob();
+        const file = new File([blob], fileName, { type: mimeType });
+        const r = await store.replaceMediaAsset(mediaId, file);
         return { id, ok: r.success, error: serializeError(r.error) };
       }
 
@@ -290,33 +327,6 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
         return { id, ok: true };
       }
 
-      // ── Asset relinking ──────────────────────────────────────────────────
-      case "relinkMedia": {
-        // Fetches a file from a URL served by the bridge's HTTP asset server,
-        // then calls replaceMediaAsset to bind it to an existing media item.
-        // This preserves the media item's ID so all clip references stay intact.
-        const { mediaId, fileUrl, fileName, mimeType } = args as {
-          mediaId: string;
-          fileUrl: string;
-          fileName: string;
-          mimeType: string;
-        };
-
-        const resp = await fetch(fileUrl);
-        if (!resp.ok) {
-          return {
-            id,
-            ok: false,
-            error: `Fetch failed: ${resp.status} ${resp.statusText} — ${fileUrl}`,
-          };
-        }
-
-        const blob = await resp.blob();
-        const file = new File([blob], fileName, { type: mimeType });
-        const r = await store.replaceMediaAsset(mediaId, file);
-        return { id, ok: r.success, error: serializeError(r.error) };
-      }
-
       // ── UI ───────────────────────────────────────────────────────────────
       case "showWelcomeScreen": {
         const ui = useUIStore.getState();
@@ -369,7 +379,6 @@ export function initDevBridge(): void {
           return Promise.resolve({ id, queued: true });
         },
       };
-
     });
 
     ws.addEventListener("message", async (event) => {
