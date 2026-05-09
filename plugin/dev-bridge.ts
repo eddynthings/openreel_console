@@ -16,6 +16,7 @@
 import type { Project, MediaItem, ProjectSettings, TextStyle } from "@openreel/core";
 import { useProjectStore } from "../stores/project-store";
 import { useTimelineStore } from "../stores/timeline-store";
+import { useUIStore } from "../stores/ui-store";
 import { autoSaveManager } from "./auto-save";
 
 const BRIDGE_URL = "ws://localhost:7175";
@@ -314,6 +315,14 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
         const file = new File([blob], fileName, { type: mimeType });
         const r = await store.replaceMediaAsset(mediaId, file);
         return { id, ok: r.success, error: serializeError(r.error) };
+      }
+
+      // ── UI ───────────────────────────────────────────────────────────────
+      case "showWelcomeScreen": {
+        const ui = useUIStore.getState();
+        ui.setSkipWelcomeScreen(false);
+        ui.setShowWelcomeScreen(true);
+        return { id, ok: true };
       }
 
       // ── Auto-save ────────────────────────────────────────────────────────
