@@ -490,6 +490,14 @@ async function relinkAllMedia(assetDir, proxyDir, { onProgress } = {}) {
   return { linked, failed, errors };
 }
 
+async function forceSave() {
+  return call("forceSave");
+}
+
+async function clearAutoSaves() {
+  return call("clearAutoSaves");
+}
+
 // ── Export ────────────────────────────────────────────────────────────────────
 
 export const openreel = {
@@ -544,6 +552,10 @@ export const openreel = {
 
   // Timeline
   setPlayhead,
+
+  // Auto-save
+  forceSave,
+  clearAutoSaves,
 
   // Browser control
   reloadBrowser,

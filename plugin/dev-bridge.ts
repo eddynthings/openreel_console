@@ -317,6 +317,12 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
       }
 
       // ── Auto-save ────────────────────────────────────────────────────────
+      case "forceSave": {
+        const project = useProjectStore.getState().project;
+        await autoSaveManager.forceSave(project);
+        return { id, ok: true, result: { savedProjectId: project.id, name: project.name } };
+      }
+
       case "clearAutoSaves": {
         await autoSaveManager.clearAllSaves();
         return { id, ok: true };
