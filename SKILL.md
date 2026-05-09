@@ -269,7 +269,7 @@ Or inline:
 ```javascript
 import { openreel } from './openreel-sdk.mjs';
 
-await openreel.loadProjectFile('./enterprise-security-project-live.json');
+await openreel.loadProjectFile('./my-project-live.json');
 await openreel.relink('/path/to/assets', { proxyDir: '/path/to/proxies',
   onProgress: (d, t, n) => process.stdout.write(`\r  ${d}/${t} — ${n}`) });
 await openreel.forceSave();
