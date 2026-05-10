@@ -13,7 +13,8 @@
  *        initDevBridge();   // call before ReactDOM.createRoot
  */
 
-import type { Project, MediaItem, ProjectSettings, TextStyle, Transform } from "@openreel/core";
+import type { Project, MediaItem, ProjectSettings, TextStyle, Transform, Keyframe } from "@openreel/core";
+import type { VideoEffectType } from "../bridges/effects-bridge";
 import { useProjectStore } from "../stores/project-store";
 import { useTimelineStore } from "../stores/timeline-store";
 import { useUIStore } from "../stores/ui-store";
@@ -220,6 +221,23 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
         const ok = store.updateClipTransform(
           args.clipId as string,
           args.transform as Partial<Transform>,
+        );
+        return { id, ok };
+      }
+
+      case "addVideoEffect": {
+        const r = await store.addVideoEffect(
+          args.clipId as string,
+          args.effectType as VideoEffectType,
+          args.params as Record<string, unknown>,
+        );
+        return { id, ok: r.success, result: r, error: serializeError(r.error) };
+      }
+
+      case "updateClipKeyframes": {
+        const ok = store.updateClipKeyframes(
+          args.clipId as string,
+          args.keyframes as Keyframe[],
         );
         return { id, ok };
       }

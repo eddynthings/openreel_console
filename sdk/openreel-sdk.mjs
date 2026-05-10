@@ -154,7 +154,9 @@ const splitClip         = (clipId, time)                 => call("splitClip", { 
 const rippleDeleteClip  = (clipId)                       => call("rippleDeleteClip", { clipId });
 const duplicateClip     = (clipId)                       => call("duplicateClip", { clipId });
 const separateAudio     = (clipId)                       => call("separateAudio", { clipId });
-const updateClipTransform = (clipId, transform)          => call("updateClipTransform", { clipId, transform });
+const updateClipTransform  = (clipId, transform)          => call("updateClipTransform", { clipId, transform });
+const addVideoEffect       = (clipId, effectType, params) => call("addVideoEffect", { clipId, effectType, params });
+const updateClipKeyframes  = (clipId, keyframes)          => call("updateClipKeyframes", { clipId, keyframes });
 
 // ── Media ─────────────────────────────────────────────────────────────────────
 
@@ -354,6 +356,8 @@ export const openreel = {
   duplicateClip,
   separateAudio,
   updateClipTransform,
+  addVideoEffect,
+  updateClipKeyframes,
 
   // Media
   importMediaFromUrl,
