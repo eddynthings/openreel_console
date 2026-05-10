@@ -154,15 +154,39 @@ const splitClip         = (clipId, time)                 => call("splitClip", { 
 const rippleDeleteClip  = (clipId)                       => call("rippleDeleteClip", { clipId });
 const duplicateClip     = (clipId)                       => call("duplicateClip", { clipId });
 const separateAudio     = (clipId)                       => call("separateAudio", { clipId });
-const updateClipTransform  = (clipId, transform)          => call("updateClipTransform", { clipId, transform });
-const addVideoEffect       = (clipId, effectType, params) => call("addVideoEffect", { clipId, effectType, params });
-const updateClipKeyframes  = (clipId, keyframes)          => call("updateClipKeyframes", { clipId, keyframes });
+const updateClipTransform       = (clipId, transform)               => call("updateClipTransform", { clipId, transform });
+const addVideoEffect            = (clipId, effectType, params)       => call("addVideoEffect", { clipId, effectType, params });
+const updateClipKeyframes       = (clipId, keyframes)                => call("updateClipKeyframes", { clipId, keyframes });
+const addClipToNewTrack         = (mediaId, startTime)               => call("addClipToNewTrack", { mediaId, startTime });
+const slipClip                  = (clipId, delta)                    => call("slipClip", { clipId, delta });
+const slideClip                 = (clipId, delta)                    => call("slideClip", { clipId, delta });
+const rollEdit                  = (leftClipId, rightClipId, delta)   => call("rollEdit", { leftClipId, rightClipId, delta });
+const trimToPlayhead            = (clipId, playheadTime, trimStart)  => call("trimToPlayhead", { clipId, playheadTime, trimStart });
+const updateClipBlendMode       = (clipId, blendMode)                => call("updateClipBlendMode", { clipId, blendMode });
+const updateClipBlendOpacity    = (clipId, opacity)                  => call("updateClipBlendOpacity", { clipId, opacity });
+const updateClipRotate3D        = (clipId, rotate3d)                 => call("updateClipRotate3D", { clipId, rotate3d });
+const updateClipPerspective     = (clipId, perspective)              => call("updateClipPerspective", { clipId, perspective });
+const updateClipTransformStyle  = (clipId, transformStyle)           => call("updateClipTransformStyle", { clipId, transformStyle });
+const updateClipEmphasisAnimation = (clipId, emphasisAnimation)      => call("updateClipEmphasisAnimation", { clipId, emphasisAnimation });
+const getClip                   = (clipId)                           => call("getClip", { clipId });
+const getTrack                  = (trackId)                          => call("getTrack", { trackId });
+const getTimelineDuration       = ()                                 => call("getTimelineDuration");
+
+// ── Clipboard ─────────────────────────────────────────────────────────────────
+
+const copyClips   = (clipIds)               => call("copyClips", { clipIds });
+const pasteClips  = (trackId, startTime)    => call("pasteClips", { trackId, startTime });
+const copyEffects = (clipId)                => call("copyEffects", { clipId });
+const pasteEffects = (clipId)               => call("pasteEffects", { clipId });
 
 // ── Media ─────────────────────────────────────────────────────────────────────
 
-const addPlaceholderMedia = (item)           => call("addPlaceholderMedia", { item });
-const deleteMedia          = (mediaId)       => call("deleteMedia", { mediaId });
-const renameMedia          = (mediaId, name) => call("renameMedia", { mediaId, name });
+const addPlaceholderMedia      = (item)                        => call("addPlaceholderMedia", { item });
+const deleteMedia               = (mediaId)                    => call("deleteMedia", { mediaId });
+const renameMedia               = (mediaId, name)              => call("renameMedia", { mediaId, name });
+const getMediaItem              = (mediaId)                    => call("getMediaItem", { mediaId });
+const replacePlaceholderMedia   = (mediaId, fileUrl, name)     => call("replacePlaceholderMedia", { mediaId, fileUrl, name }, 60_000);
+const setKieAIItemState         = (mediaId, isPending, kieaiError) => call("setKieAIItemState", { mediaId, isPending, kieaiError });
 
 function importMediaFromUrl(fileUrl, fileName) {
   return call("importMedia", { fileUrl, fileName, mimeType: _mimeFor(fileName) }, 60_000);
@@ -170,16 +194,38 @@ function importMediaFromUrl(fileUrl, fileName) {
 
 // ── Markers ───────────────────────────────────────────────────────────────────
 
-const addMarker    = (time, label, color) => call("addMarker", { time, label, color });
-const removeMarker = (markerId)           => call("removeMarker", { markerId });
+const addMarker    = (time, label, color)    => call("addMarker", { time, label, color });
+const removeMarker = (markerId)              => call("removeMarker", { markerId });
+const updateMarker = (markerId, updates)     => call("updateMarker", { markerId, updates });
+const getMarker    = (markerId)              => call("getMarker", { markerId });
+const getMarkers   = ()                      => call("getMarkers");
 
 // ── Text ──────────────────────────────────────────────────────────────────────
 
-const createTextClip    = (trackId, startTime, text, duration, style) =>
+const createTextClip         = (trackId, startTime, text, duration, style) =>
   call("createTextClip", { trackId, startTime, text, duration, style });
-const updateTextContent = (clipId, text) => call("updateTextContent", { clipId, text });
+const updateTextContent      = (clipId, text)                    => call("updateTextContent", { clipId, text });
+const updateTextStyle        = (clipId, style)                   => call("updateTextStyle", { clipId, style });
+const updateTextAnimation    = (clipId, animation)               => call("updateTextAnimation", { clipId, animation });
+const updateTextTransform    = (clipId, transform)               => call("updateTextTransform", { clipId, transform });
+const getTextClip            = (clipId)                          => call("getTextClip", { clipId });
+const getAllTextClips         = ()                                => call("getAllTextClips");
+const updateTextClipKeyframes = (clipId, keyframes)              => call("updateTextClipKeyframes", { clipId, keyframes });
+const applyTextAnimationPreset = (clipId, preset, inDuration, outDuration, params) =>
+  call("applyTextAnimationPreset", { clipId, preset, inDuration, outDuration, params });
+const getAvailableAnimationPresets = ()                          => call("getAvailableAnimationPresets");
+const deleteTextClip         = (clipId)                          => call("deleteTextClip", { clipId });
 
-// ── SRT / Subtitles ───────────────────────────────────────────────────────────
+// ── Subtitles ─────────────────────────────────────────────────────────────────
+
+const addSubtitle             = (subtitle)              => call("addSubtitle", { subtitle });
+const removeSubtitle          = (subtitleId)            => call("removeSubtitle", { subtitleId });
+const updateSubtitle          = (subtitleId, updates)   => call("updateSubtitle", { subtitleId, updates });
+const getSubtitle             = (subtitleId)            => call("getSubtitle", { subtitleId });
+const applySubtitleStylePreset = (presetName)           => call("applySubtitleStylePreset", { presetName });
+const getSubtitleStylePresets = ()                      => call("getSubtitleStylePresets");
+
+// ── SRT ───────────────────────────────────────────────────────────────────────
 
 const importSRT = (srtContent) => call("importSRT", { srtContent });
 const exportSRT = ()           => call("exportSRT");
@@ -190,8 +236,82 @@ const setPlayhead = (time) => call("setPlayhead", { time });
 
 // ── Auto-save ─────────────────────────────────────────────────────────────────
 
-const forceSave     = () => call("forceSave");
-const clearAutoSaves = () => call("clearAutoSaves");
+const forceSave           = () => call("forceSave");
+const clearAutoSaves      = () => call("clearAutoSaves");
+const initializeAutoSave  = () => call("initializeAutoSave");
+const checkForRecovery    = () => call("checkForRecovery");
+const recoverFromAutoSave = (saveId) => call("recoverFromAutoSave", { saveId });
+
+// ── Graphics — shapes ─────────────────────────────────────────────────────────
+
+const createShapeClip   = (trackId, startTime, shapeType, duration, style) =>
+  call("createShapeClip", { trackId, startTime, shapeType, duration, style });
+const updateShapeStyle    = (clipId, style)      => call("updateShapeStyle", { clipId, style });
+const updateShapeTransform = (clipId, transform) => call("updateShapeTransform", { clipId, transform });
+const getShapeClip        = (clipId)             => call("getShapeClip", { clipId });
+const deleteShapeClip     = (clipId)             => call("deleteShapeClip", { clipId });
+
+// ── Graphics — SVG ────────────────────────────────────────────────────────────
+
+const importSVG      = (svgContent, trackId, startTime, duration) =>
+  call("importSVG", { svgContent, trackId, startTime, duration });
+const getSVGClip     = (clipId)           => call("getSVGClip", { clipId });
+const getSVGClipById = (clipId)           => call("getSVGClipById", { clipId });
+const updateSVGClip  = (clipId, updates)  => call("updateSVGClip", { clipId, updates });
+const deleteSVGClip  = (clipId)           => call("deleteSVGClip", { clipId });
+
+// ── Graphics — stickers ───────────────────────────────────────────────────────
+
+const createStickerClip = (clip)   => call("createStickerClip", { clip });
+const getStickerClip    = (clipId) => call("getStickerClip", { clipId });
+const deleteStickerClip = (clipId) => call("deleteStickerClip", { clipId });
+
+// ── Photo editing ─────────────────────────────────────────────────────────────
+
+const createPhotoProject      = (width, height, name)               => call("createPhotoProject", { width, height, name });
+const importPhotoForEditing   = (imageUrl, name)                    => call("importPhotoForEditing", { imageUrl, name }, 60_000);
+const addPhotoLayer           = (projectId, options)                => call("addPhotoLayer", { projectId, options });
+const removePhotoLayer        = (projectId, layerId)                => call("removePhotoLayer", { projectId, layerId });
+const reorderPhotoLayers      = (projectId, fromIndex, toIndex)     => call("reorderPhotoLayers", { projectId, fromIndex, toIndex });
+const setPhotoLayerVisibility = (projectId, layerId, visible)       => call("setPhotoLayerVisibility", { projectId, layerId, visible });
+const setPhotoLayerOpacity    = (projectId, layerId, opacity)       => call("setPhotoLayerOpacity", { projectId, layerId, opacity });
+const setPhotoLayerBlendMode  = (projectId, layerId, blendMode)     => call("setPhotoLayerBlendMode", { projectId, layerId, blendMode });
+const getPhotoProject         = (projectId)                         => call("getPhotoProject", { projectId });
+
+// ── Video effects (extended) ──────────────────────────────────────────────────
+
+const updateVideoEffect   = (clipId, effectId, params)  => call("updateVideoEffect", { clipId, effectId, params });
+const removeVideoEffect   = (clipId, effectId)          => call("removeVideoEffect", { clipId, effectId });
+const reorderVideoEffects = (clipId, effectIds)         => call("reorderVideoEffects", { clipId, effectIds });
+const toggleVideoEffect   = (clipId, effectId, enabled) => call("toggleVideoEffect", { clipId, effectId, enabled });
+const getVideoEffects     = (clipId)                    => call("getVideoEffects", { clipId });
+const getVideoEffect      = (clipId, effectId)          => call("getVideoEffect", { clipId, effectId });
+
+// ── Color grading ─────────────────────────────────────────────────────────────
+
+const updateColorGrading = (clipId, settings) => call("updateColorGrading", { clipId, settings });
+const getColorGrading    = (clipId)           => call("getColorGrading", { clipId });
+const resetColorGrading  = (clipId)           => call("resetColorGrading", { clipId });
+
+// ── Audio effects ─────────────────────────────────────────────────────────────
+
+const addAudioEffect    = (clipId, effect)              => call("addAudioEffect", { clipId, effect });
+const updateAudioEffect = (clipId, effectId, params)    => call("updateAudioEffect", { clipId, effectId, params });
+const removeAudioEffect = (clipId, effectId)            => call("removeAudioEffect", { clipId, effectId });
+const toggleAudioEffect = (clipId, effectId, enabled)   => call("toggleAudioEffect", { clipId, effectId, enabled });
+const getAudioEffects   = (clipId)                      => call("getAudioEffects", { clipId });
+
+// ── Undo / Redo ───────────────────────────────────────────────────────────────
+
+const undo     = () => call("undo");
+const redo     = () => call("redo");
+const canUndo  = () => call("canUndo");
+const canRedo  = () => call("canRedo");
+
+// ── Execute raw action ────────────────────────────────────────────────────────
+
+const executeAction  = (action) => call("executeAction", { action });
+const getFullProject = ()       => call("getFullProject");
 
 // ── Browser control ───────────────────────────────────────────────────────────
 
@@ -358,31 +478,137 @@ export const openreel = {
   updateClipTransform,
   addVideoEffect,
   updateClipKeyframes,
+  addClipToNewTrack,
+  slipClip,
+  slideClip,
+  rollEdit,
+  trimToPlayhead,
+  updateClipBlendMode,
+  updateClipBlendOpacity,
+  updateClipRotate3D,
+  updateClipPerspective,
+  updateClipTransformStyle,
+  updateClipEmphasisAnimation,
+  getClip,
+
+  // Clipboard
+  copyClips,
+  pasteClips,
+  copyEffects,
+  pasteEffects,
 
   // Media
   importMediaFromUrl,
   addPlaceholderMedia,
   deleteMedia,
   renameMedia,
+  getMediaItem,
+  replacePlaceholderMedia,
+  setKieAIItemState,
 
   // Markers
   addMarker,
   removeMarker,
+  updateMarker,
+  getMarker,
+  getMarkers,
 
   // Text
   createTextClip,
   updateTextContent,
+  updateTextStyle,
+  updateTextAnimation,
+  updateTextTransform,
+  getTextClip,
+  getAllTextClips,
+  updateTextClipKeyframes,
+  applyTextAnimationPreset,
+  getAvailableAnimationPresets,
+  deleteTextClip,
 
-  // SRT / Subtitles
+  // Subtitles
+  addSubtitle,
+  removeSubtitle,
+  updateSubtitle,
+  getSubtitle,
+  applySubtitleStylePreset,
+  getSubtitleStylePresets,
+
+  // SRT
   importSRT,
   exportSRT,
 
+  // Graphics — shapes
+  createShapeClip,
+  updateShapeStyle,
+  updateShapeTransform,
+  getShapeClip,
+  deleteShapeClip,
+
+  // Graphics — SVG
+  importSVG,
+  getSVGClip,
+  getSVGClipById,
+  updateSVGClip,
+  deleteSVGClip,
+
+  // Graphics — stickers
+  createStickerClip,
+  getStickerClip,
+  deleteStickerClip,
+
+  // Photo editing
+  createPhotoProject,
+  importPhotoForEditing,
+  addPhotoLayer,
+  removePhotoLayer,
+  reorderPhotoLayers,
+  setPhotoLayerVisibility,
+  setPhotoLayerOpacity,
+  setPhotoLayerBlendMode,
+  getPhotoProject,
+
+  // Video effects
+  updateVideoEffect,
+  removeVideoEffect,
+  reorderVideoEffects,
+  toggleVideoEffect,
+  getVideoEffects,
+  getVideoEffect,
+
+  // Color grading
+  updateColorGrading,
+  getColorGrading,
+  resetColorGrading,
+
+  // Audio effects
+  addAudioEffect,
+  updateAudioEffect,
+  removeAudioEffect,
+  toggleAudioEffect,
+  getAudioEffects,
+
   // Timeline
   setPlayhead,
+  getTrack,
+  getTimelineDuration,
+  getFullProject,
+
+  // Undo / Redo
+  undo,
+  redo,
+  canUndo,
+  canRedo,
+
+  // Execute raw action
+  executeAction,
 
   // Auto-save
   forceSave,
   clearAutoSaves,
+  initializeAutoSave,
+  checkForRecovery,
+  recoverFromAutoSave,
 
   // UI
   showWelcomeScreen,

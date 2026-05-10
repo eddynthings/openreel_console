@@ -13,8 +13,15 @@
  *        initDevBridge();   // call before ReactDOM.createRoot
  */
 
-import type { Project, MediaItem, ProjectSettings, TextStyle, Transform, Keyframe } from "@openreel/core";
-import type { VideoEffectType } from "../bridges/effects-bridge";
+import type {
+  Project, MediaItem, ProjectSettings, TextStyle, Transform, Keyframe,
+  Action, Effect,
+  TextAnimation, TextAnimationPreset, TextAnimationParams,
+  ShapeClip, ShapeType, ShapeStyle, SVGClip, StickerClip,
+  PhotoProject, CreateLayerOptions, PhotoBlendMode,
+  BlendMode, EmphasisAnimation, Subtitle, Marker,
+} from "@openreel/core";
+import type { VideoEffect, VideoEffectType, ColorGradingSettings } from "../bridges/effects-bridge";
 import { useProjectStore } from "../stores/project-store";
 import { useTimelineStore } from "../stores/timeline-store";
 import { useUIStore } from "../stores/ui-store";
@@ -363,6 +370,526 @@ async function dispatch(msg: BridgeCommand): Promise<BridgeResponse> {
       case "clearAutoSaves": {
         await autoSaveManager.clearAllSaves();
         return { id, ok: true };
+      }
+
+      case "initializeAutoSave": {
+        await store.initializeAutoSave();
+        return { id, ok: true };
+      }
+
+      case "checkForRecovery": {
+        const saves = await store.checkForRecovery();
+        return { id, ok: true, result: saves };
+      }
+
+      case "recoverFromAutoSave": {
+        const ok = await store.recoverFromAutoSave(args.saveId as string);
+        return { id, ok };
+      }
+
+      // ── Clip editing (advanced) ───────────────────────────────────────────
+      case "addClipToNewTrack": {
+        const r = await store.addClipToNewTrack(
+          args.mediaId as string,
+          args.startTime as number | undefined,
+        );
+        return { id, ok: r.success, result: r, error: serializeError(r.error) };
+      }
+
+      case "slipClip": {
+        const r = await store.slipClip(args.clipId as string, args.delta as number);
+        return { id, ok: r.success, error: serializeError(r.error) };
+      }
+
+      case "slideClip": {
+        const r = await store.slideClip(args.clipId as string, args.delta as number);
+        return { id, ok: r.success, error: serializeError(r.error) };
+      }
+
+      case "rollEdit": {
+        const r = await store.rollEdit(
+          args.leftClipId as string,
+          args.rightClipId as string,
+          args.delta as number,
+        );
+        return { id, ok: r.success, error: serializeError(r.error) };
+      }
+
+      case "trimToPlayhead": {
+        const r = await store.trimToPlayhead(
+          args.clipId as string,
+          args.playheadTime as number,
+          args.trimStart as boolean,
+        );
+        return { id, ok: r.success, error: serializeError(r.error) };
+      }
+
+      case "updateClipBlendMode": {
+        const ok = store.updateClipBlendMode(args.clipId as string, args.blendMode as BlendMode);
+        return { id, ok };
+      }
+
+      case "updateClipBlendOpacity": {
+        const ok = store.updateClipBlendOpacity(args.clipId as string, args.opacity as number);
+        return { id, ok };
+      }
+
+      case "updateClipRotate3D": {
+        const ok = store.updateClipRotate3D(
+          args.clipId as string,
+          args.rotate3d as { x: number; y: number; z: number },
+        );
+        return { id, ok };
+      }
+
+      case "updateClipPerspective": {
+        const ok = store.updateClipPerspective(args.clipId as string, args.perspective as number);
+        return { id, ok };
+      }
+
+      case "updateClipTransformStyle": {
+        const ok = store.updateClipTransformStyle(
+          args.clipId as string,
+          args.transformStyle as "flat" | "preserve-3d",
+        );
+        return { id, ok };
+      }
+
+      case "updateClipEmphasisAnimation": {
+        const ok = store.updateClipEmphasisAnimation(
+          args.clipId as string,
+          args.emphasisAnimation as EmphasisAnimation,
+        );
+        return { id, ok };
+      }
+
+      case "getClip": {
+        const clip = store.getClip(args.clipId as string);
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "getTrack": {
+        const track = store.getTrack(args.trackId as string);
+        return { id, ok: !!track, result: track };
+      }
+
+      case "getTimelineDuration": {
+        return { id, ok: true, result: store.getTimelineDuration() };
+      }
+
+      // ── Clipboard ────────────────────────────────────────────────────────
+      case "copyClips": {
+        store.copyClips(args.clipIds as string[]);
+        return { id, ok: true };
+      }
+
+      case "pasteClips": {
+        const results = await store.pasteClips(args.trackId as string, args.startTime as number);
+        return { id, ok: true, result: results };
+      }
+
+      case "copyEffects": {
+        store.copyEffects(args.clipId as string);
+        return { id, ok: true };
+      }
+
+      case "pasteEffects": {
+        const r = await store.pasteEffects(args.clipId as string);
+        return { id, ok: r.success, result: r, error: serializeError(r.error) };
+      }
+
+      // ── Text (extended) ──────────────────────────────────────────────────
+      case "updateTextStyle": {
+        const clip = store.updateTextStyle(args.clipId as string, args.style as Partial<TextStyle>);
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "updateTextAnimation": {
+        const clip = store.updateTextAnimation(args.clipId as string, args.animation as TextAnimation);
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "updateTextTransform": {
+        const clip = store.updateTextTransform(args.clipId as string, args.transform as Partial<Transform>);
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "getTextClip": {
+        const clip = store.getTextClip(args.clipId as string);
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "getAllTextClips": {
+        return { id, ok: true, result: store.getAllTextClips() };
+      }
+
+      case "updateTextClipKeyframes": {
+        const clip = store.updateTextClipKeyframes(args.clipId as string, args.keyframes as Keyframe[]);
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "applyTextAnimationPreset": {
+        const clip = store.applyTextAnimationPreset(
+          args.clipId as string,
+          args.preset as TextAnimationPreset,
+          args.inDuration as number | undefined,
+          args.outDuration as number | undefined,
+          args.params as Partial<TextAnimationParams> | undefined,
+        );
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "getAvailableAnimationPresets": {
+        return { id, ok: true, result: store.getAvailableAnimationPresets() };
+      }
+
+      case "deleteTextClip": {
+        const ok = store.deleteTextClip(args.clipId as string);
+        return { id, ok };
+      }
+
+      // ── Subtitles (extended) ─────────────────────────────────────────────
+      case "addSubtitle": {
+        await store.addSubtitle(args.subtitle as Subtitle);
+        return { id, ok: true };
+      }
+
+      case "removeSubtitle": {
+        store.removeSubtitle(args.subtitleId as string);
+        return { id, ok: true };
+      }
+
+      case "updateSubtitle": {
+        store.updateSubtitle(args.subtitleId as string, args.updates as Partial<Subtitle>);
+        return { id, ok: true };
+      }
+
+      case "getSubtitle": {
+        const subtitle = store.getSubtitle(args.subtitleId as string);
+        return { id, ok: !!subtitle, result: subtitle };
+      }
+
+      case "applySubtitleStylePreset": {
+        const ok = await store.applySubtitleStylePreset(args.presetName as string);
+        return { id, ok };
+      }
+
+      case "getSubtitleStylePresets": {
+        const presets = await store.getSubtitleStylePresets();
+        return { id, ok: true, result: presets };
+      }
+
+      // ── Markers (extended) ───────────────────────────────────────────────
+      case "updateMarker": {
+        store.updateMarker(args.markerId as string, args.updates as Partial<Marker>);
+        return { id, ok: true };
+      }
+
+      case "getMarker": {
+        const marker = store.getMarker(args.markerId as string);
+        return { id, ok: !!marker, result: marker };
+      }
+
+      case "getMarkers": {
+        return { id, ok: true, result: store.getMarkers() };
+      }
+
+      // ── Graphics — shapes ────────────────────────────────────────────────
+      case "createShapeClip": {
+        const clip = store.createShapeClip(
+          args.trackId as string,
+          args.startTime as number,
+          args.shapeType as ShapeType,
+          args.duration as number | undefined,
+          args.style as Partial<ShapeStyle> | undefined,
+        );
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "updateShapeStyle": {
+        const clip = store.updateShapeStyle(args.clipId as string, args.style as Partial<ShapeStyle>);
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "updateShapeTransform": {
+        const clip = store.updateShapeTransform(args.clipId as string, args.transform as Partial<Transform>);
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "getShapeClip": {
+        const clip = store.getShapeClip(args.clipId as string);
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "deleteShapeClip": {
+        const ok = store.deleteShapeClip(args.clipId as string);
+        return { id, ok };
+      }
+
+      // ── Graphics — SVG ───────────────────────────────────────────────────
+      case "importSVG": {
+        const clip = store.importSVG(
+          args.svgContent as string,
+          args.trackId as string,
+          args.startTime as number,
+          args.duration as number | undefined,
+        );
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "getSVGClip": {
+        const clip = store.getSVGClip(args.clipId as string);
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "getSVGClipById": {
+        const clip = store.getSVGClipById(args.clipId as string);
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "updateSVGClip": {
+        const clip = store.updateSVGClip(
+          args.clipId as string,
+          args.updates as Parameters<typeof store.updateSVGClip>[1],
+        );
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "deleteSVGClip": {
+        const ok = store.deleteSVGClip(args.clipId as string);
+        return { id, ok };
+      }
+
+      // ── Graphics — stickers ──────────────────────────────────────────────
+      case "createStickerClip": {
+        const clip = store.createStickerClip(args.clip as StickerClip);
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "getStickerClip": {
+        const clip = store.getStickerClip(args.clipId as string);
+        return { id, ok: !!clip, result: clip };
+      }
+
+      case "deleteStickerClip": {
+        const ok = store.deleteStickerClip(args.clipId as string);
+        return { id, ok };
+      }
+
+      // ── Photo editing ────────────────────────────────────────────────────
+      case "createPhotoProject": {
+        const project = store.createPhotoProject(
+          args.width as number | undefined,
+          args.height as number | undefined,
+          args.name as string | undefined,
+        );
+        return { id, ok: !!project, result: project };
+      }
+
+      case "importPhotoForEditing": {
+        // Fetch image from URL, decode to ImageBitmap, then pass to store
+        const resp = await fetch(args.imageUrl as string);
+        if (!resp.ok) return { id, ok: false, error: `Fetch failed: ${resp.status}` };
+        const blob = await resp.blob();
+        const bitmap = await createImageBitmap(blob);
+        const project = store.importPhotoForEditing(bitmap, args.name as string | undefined);
+        return { id, ok: !!project, result: project };
+      }
+
+      case "addPhotoLayer": {
+        const project = store.addPhotoLayer(
+          args.projectId as string,
+          args.options as CreateLayerOptions | undefined,
+        );
+        return { id, ok: !!project, result: project };
+      }
+
+      case "removePhotoLayer": {
+        const project = store.removePhotoLayer(args.projectId as string, args.layerId as string);
+        return { id, ok: !!project, result: project };
+      }
+
+      case "reorderPhotoLayers": {
+        const project = store.reorderPhotoLayers(
+          args.projectId as string,
+          args.fromIndex as number,
+          args.toIndex as number,
+        );
+        return { id, ok: !!project, result: project };
+      }
+
+      case "setPhotoLayerVisibility": {
+        const project = store.setPhotoLayerVisibility(
+          args.projectId as string,
+          args.layerId as string,
+          args.visible as boolean | undefined,
+        );
+        return { id, ok: !!project, result: project };
+      }
+
+      case "setPhotoLayerOpacity": {
+        const project = store.setPhotoLayerOpacity(
+          args.projectId as string,
+          args.layerId as string,
+          args.opacity as number,
+        );
+        return { id, ok: !!project, result: project };
+      }
+
+      case "setPhotoLayerBlendMode": {
+        const project = store.setPhotoLayerBlendMode(
+          args.projectId as string,
+          args.layerId as string,
+          args.blendMode as PhotoBlendMode,
+        );
+        return { id, ok: !!project, result: project };
+      }
+
+      case "getPhotoProject": {
+        const project = store.getPhotoProject(args.projectId as string);
+        return { id, ok: !!project, result: project };
+      }
+
+      // ── Video effects (extended) ─────────────────────────────────────────
+      case "updateVideoEffect": {
+        const effect = store.updateVideoEffect(
+          args.clipId as string,
+          args.effectId as string,
+          args.params as Record<string, unknown>,
+        );
+        return { id, ok: !!effect, result: effect };
+      }
+
+      case "removeVideoEffect": {
+        const ok = store.removeVideoEffect(args.clipId as string, args.effectId as string);
+        return { id, ok };
+      }
+
+      case "reorderVideoEffects": {
+        const ok = store.reorderVideoEffects(args.clipId as string, args.effectIds as string[]);
+        return { id, ok };
+      }
+
+      case "toggleVideoEffect": {
+        const effect = store.toggleVideoEffect(
+          args.clipId as string,
+          args.effectId as string,
+          args.enabled as boolean,
+        );
+        return { id, ok: !!effect, result: effect };
+      }
+
+      case "getVideoEffects": {
+        return { id, ok: true, result: store.getVideoEffects(args.clipId as string) };
+      }
+
+      case "getVideoEffect": {
+        const effect = store.getVideoEffect(args.clipId as string, args.effectId as string);
+        return { id, ok: !!effect, result: effect };
+      }
+
+      // ── Color grading ────────────────────────────────────────────────────
+      case "updateColorGrading": {
+        const ok = store.updateColorGrading(
+          args.clipId as string,
+          args.settings as Partial<ColorGradingSettings>,
+        );
+        return { id, ok };
+      }
+
+      case "getColorGrading": {
+        return { id, ok: true, result: store.getColorGrading(args.clipId as string) };
+      }
+
+      case "resetColorGrading": {
+        const ok = store.resetColorGrading(args.clipId as string);
+        return { id, ok };
+      }
+
+      // ── Audio effects ────────────────────────────────────────────────────
+      case "addAudioEffect": {
+        const ok = store.addAudioEffect(args.clipId as string, args.effect as Effect);
+        return { id, ok };
+      }
+
+      case "updateAudioEffect": {
+        const ok = store.updateAudioEffect(
+          args.clipId as string,
+          args.effectId as string,
+          args.params as Record<string, unknown>,
+        );
+        return { id, ok };
+      }
+
+      case "removeAudioEffect": {
+        const ok = store.removeAudioEffect(args.clipId as string, args.effectId as string);
+        return { id, ok };
+      }
+
+      case "toggleAudioEffect": {
+        const ok = store.toggleAudioEffect(
+          args.clipId as string,
+          args.effectId as string,
+          args.enabled as boolean,
+        );
+        return { id, ok };
+      }
+
+      case "getAudioEffects": {
+        return { id, ok: true, result: store.getAudioEffects(args.clipId as string) };
+      }
+
+      // ── Media (extended) ─────────────────────────────────────────────────
+      case "getMediaItem": {
+        const item = store.getMediaItem(args.mediaId as string);
+        return { id, ok: !!item, result: item };
+      }
+
+      case "replacePlaceholderMedia": {
+        const resp = await fetch(args.fileUrl as string);
+        if (!resp.ok) return { id, ok: false, error: `Fetch failed: ${resp.status}` };
+        const blob = await resp.blob();
+        await store.replacePlaceholderMedia(args.mediaId as string, blob, args.name as string);
+        return { id, ok: true };
+      }
+
+      case "setKieAIItemState": {
+        store.setKieAIItemState(
+          args.mediaId as string,
+          args.isPending as boolean,
+          args.kieaiError as boolean,
+        );
+        return { id, ok: true };
+      }
+
+      // ── Undo / Redo ──────────────────────────────────────────────────────
+      case "undo": {
+        const r = await store.undo();
+        return { id, ok: r.success, result: r, error: serializeError(r.error) };
+      }
+
+      case "redo": {
+        const r = await store.redo();
+        return { id, ok: r.success, result: r, error: serializeError(r.error) };
+      }
+
+      case "canUndo": {
+        return { id, ok: true, result: store.canUndo() };
+      }
+
+      case "canRedo": {
+        return { id, ok: true, result: store.canRedo() };
+      }
+
+      // ── Execute raw action ───────────────────────────────────────────────
+      case "executeAction": {
+        const r = await store.executeAction(args.action as Action);
+        return { id, ok: r.success, result: r, error: serializeError(r.error) };
+      }
+
+      // ── Utility reads ────────────────────────────────────────────────────
+      case "getFullProject": {
+        return { id, ok: true, result: store.project };
       }
 
       default:
